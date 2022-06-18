@@ -8,13 +8,14 @@ import 'conversions.dart';
 
 main() async {
   var styleJson =
-      jsonDecode(await new File('scripts/input/style.json').readAsString());
+  jsonDecode(await new File('input/style.json').readAsString());
 
   final layerTypes = [
     "symbol",
     "circle",
     "line",
     "fill",
+    "fill-extrusion",
     "raster",
     "hillshade"
   ];
@@ -33,6 +34,7 @@ main() async {
         {
           "type": type,
           "typePascal": ReCase(type).pascalCase,
+          "typeCamel": ReCase(type).camelCase,
           "paint_properties": buildStyleProperties(styleJson, "paint_$type"),
           "layout_properties": buildStyleProperties(styleJson, "layout_$type"),
         },
@@ -42,6 +44,7 @@ main() async {
         {
           "type": type.replaceAll("_", "-"),
           "typePascal": ReCase(type).pascalCase,
+          "typeCamel": ReCase(type).camelCase,
           "properties": buildSourceProperties(styleJson, "source_$type"),
         },
     ],
@@ -55,28 +58,28 @@ main() async {
   ].toSet().map((p) => {"property": p}).toList();
 
   const templates = [
-    "android/src/main/java/com/mapbox/mapboxgl/LayerPropertyConverter.java",
-    "ios/Classes/LayerPropertyConverter.swift",
-    "lib/src/layer_expressions.dart",
-    "lib/src/layer_properties.dart",
-    "mapbox_gl_web/lib/src/layer_tools.dart",
-    "mapbox_gl_platform_interface/lib/src/source_properties.dart",
+    "../android/src/main/java/com/mapbox/mapboxgl/LayerPropertyConverter.java",
+    "../ios/Classes/LayerPropertyConverter.swift",
+    "../lib/src/layer_expressions.dart",
+    "../lib/src/layer_properties.dart",
+    "../mapbox_gl_web/lib/src/layer_tools.dart",
+    "../mapbox_gl_platform_interface/lib/src/source_properties.dart",
   ];
 
   for (var template in templates) await render(renderContext, template);
 }
 
 Future<void> render(
-  Map<String, List> renderContext,
-  String path,
-) async {
+    Map<String, List> renderContext,
+    String path,
+    ) async {
   final pathItems = path.split("/");
   final filename = pathItems.removeLast();
   final outputPath = pathItems.join("/");
 
   print("Rendering $filename");
   var templateFile =
-      await File('./scripts/templates/$filename.template').readAsString();
+  await File('templates/$filename.template').readAsString();
 
   var template = Template(templateFile);
   var outputFile = File('$outputPath/$filename');
@@ -121,10 +124,12 @@ Map<String, dynamic> buildSourceProperty(
   final camelCase = ReCase(key).camelCase;
   final typeDart = dartTypeMappingTable[value["type"]];
   final typeSwift = swiftTypeMappingTable[value["type"]];
-  final nestedTypeDart = dartTypeMappingTable[value["value"]] ??
-      dartTypeMappingTable[value["value"]["type"]];
-  final nestedTypeSwift = swiftTypeMappingTable[value["value"]] ??
-      swiftTypeMappingTable[value["value"]["type"]];
+  // final nestedTypeDart = dartTypeMappingTable[value["value"]] ??
+  // dartTypeMappingTable[value["value"]["type"]];
+  final nestedTypeDart = value["value"] != null ? dartTypeMappingTable[value["value"]] : null;
+  // final nestedTypeSwift = swiftTypeMappingTable[value["value"]] ??
+  // swiftTypeMappingTable[value["value"]["type"]];
+  final nestedTypeSwift = value["value"] != null ? swiftTypeMappingTable[value["value"]] : null;
 
   var defaultValue = value["default"];
   if (defaultValue is List) {
@@ -140,7 +145,7 @@ Map<String, dynamic> buildSourceProperty(
     'hasDefault': value["default"] != null,
     'type': nestedTypeDart == null ? typeDart : "$typeDart<$nestedTypeDart>",
     'typeSwift':
-        nestedTypeSwift == null ? typeSwift : "$typeSwift<$nestedTypeSwift>",
+    nestedTypeSwift == null ? typeSwift : "$typeSwift<$nestedTypeSwift>",
     'docSplit': buildDocSplit(value).map((s) => {"part": s}).toList(),
     'valueAsCamelCase': camelCase
   };
@@ -233,10 +238,10 @@ List<Map<String, dynamic>> buildExpressionProperties(
 
   return items.entries
       .map((e) => <String, dynamic>{
-            'value': e.key,
-            'doc': e.value["doc"],
-            'docSplit': buildDocSplit(e.value).map((s) => {"part": s}).toList(),
-            'valueAsCamelCase': new ReCase(renamed[e.key] ?? e.key).camelCase
-          })
+    'value': e.key,
+    'doc': e.value["doc"],
+    'docSplit': buildDocSplit(e.value).map((s) => {"part": s}).toList(),
+    'valueAsCamelCase': new ReCase(renamed[e.key] ?? e.key).camelCase
+  })
       .toList();
 }
